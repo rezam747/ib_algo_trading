@@ -8,12 +8,21 @@ from ibapi.contract import Contract
 import time
 import threading
 
+import pandas as pd
+
 class TradingApp(EWrapper, EClient):
     def __init__(self):
         EClient.__init__(self, self)
+        self.data = {}
 
     def historicalData(self, reqId, bar):
-        print("HistoricalData. ReqId:", reqId, "BarData.", bar)
+        if reqId not in self.data : 
+            self.data[reqId] = [{"Date":bar.date, "Open":bar.open, "High":bar.high, "Low":bar.low, "Close":bar.close, "Volume":bar.volume}]
+        else:
+            self.data[reqId].append({"Date":bar.date, "Open":bar.open, "High":bar.high, "Low":bar.low, "Close":bar.close,"Volume":bar.volume})
+
+        print("reqId:{}, date:{}, open:{}, high:{}, low:{}, close:{}, volume:{}".format(reqId, bar.date, bar.open, bar.high, bar.low, bar.close, bar.volume))
+
     
 
 def websocket_conn():
@@ -48,10 +57,45 @@ def histData(req_num, contract, duration, candle_size):
                         chartOptions = [] )	
 
 
-tickers = ["AAPL", "MSFT", "TSLA"]
+tickers = ["AAPL", "MSFT","AMZN","SPY"]
 
 for ticker in tickers : 
-    histData(tickers.index(ticker), usTechSTK(ticker), '5 M', '5 mins' )
+    histData(tickers.index(ticker), usTechSTK(ticker), '1 M', '5 mins' )
+    time.sleep(7)
 
 
-time.sleep(10)
+def dataDataFrame(tradeapp_obj, tickers):
+    df_dict = {}
+    for ticker in tickers :
+        df_dict[ticker] = pd.DataFrame(tradeapp_obj.data[tickers.index(ticker)])
+        df_dict[ticker].set_index("Date", inplace=True)
+    return  df_dict
+
+
+historicalData = dataDataFrame(app, tickers)
+
+
+#Adding MACD indicator
+from src.indicators import *
+MACD_SMA(historicalData["AMZN"])
+MACD_EMA(historicalData["AMZN"])
+bollBnd(historicalData["AMZN"])
+atr(historicalData["AMZN"],n=20)
+rsi(historicalData["AMZN"],n=20)
+adx(historicalData["AMZN"],n=20)
+stochOscltr(historicalData["AMZN"],a=20,b=3)
+
+
+
+# bollBnd(historicalData["AMZN"])
+atr(historicalData["AMZN"])
+
+
+app.data
+
+
+
+
+TI_dict = {}
+for ticker in tickers :
+    TI_dict[ticker] = bollBnd(historicalData[ticker], 20)
